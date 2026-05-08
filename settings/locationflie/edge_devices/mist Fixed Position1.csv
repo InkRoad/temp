@@ -1,0 +1,7 @@
+# Missing Git LFS object placeholder
+# The local SatEdgeSim package contained this file only as a Git LFS pointer, and the referenced object was not present locally.
+# GitHub rejects commits containing unresolved LFS pointers, so this upload preserves the pointer text below for audit instead of publishing a broken LFS reference.
+version https://git-lfs.github.com/spec/v1
+oid sha256:9309c718fb4faec550e0b7b6fb2ece10a9e5daeb27cbfbd84a804473db2d207e
+size 330976983
+

@@ -1,0 +1,13 @@
+# 硬编码结果检查
+
+搜索范围: ..\tools 下的 Python/PowerShell 脚本，以及 run_chapter3.ps1/run_chapter4.ps1。
+搜索关键词: SERIES = {, DDLDO": [, TaskClfQLearning": [, chapter4_speed_results, hardcoded, mock, manual。
+
+No obvious hardcoded result arrays found.
+
+完整关键词命中:
+..\tools\create_chapter4_speed_results.py:72: output = latest_output_dir() / "chapter4_speed_results.csv"
+..\tools\plot_chapter4_results.py:53: speed_csv = results_csv.with_name("chapter4_speed_results.csv")
+..\run_chapter3.ps1:16: throw "Python was not found. Install Python or run tools\generate_mist_positions.py manually with a Python interpreter."
+..\run_chapter4.ps1:39: & $python.Source tools\create_chapter4_speed_results.py
+..\run_chapter4.ps1:15: throw "Python was not found. Install Python or run tools\generate_mist_positions.py manually."

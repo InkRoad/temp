@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<applications>
+	<application name="TYPE_1">
+		<max_delay>5</max_delay>
+		<container_size>25000</container_size>
+		<request_size>1500</request_size>
+		<results_size>100</results_size>
+		<task_length>60000</task_length>
+		<required_core>1</required_core>
+		<poisson_interarrival>40</poisson_interarrival>
+	</application>
+	<application name="TYPE_2">
+		<max_delay>200</max_delay>
+		<container_size>13000</container_size>
+		<request_size>10000</request_size>
+		<results_size>10000</results_size>
+		<task_length>200000</task_length>
+		<required_core>1</required_core>
+		<poisson_interarrival>40</poisson_interarrival>
+	</application>
+	<application name="TYPE_3">
+		<max_delay>5</max_delay>
+		<container_size>9000</container_size>
+		<request_size>50</request_size>
+		<results_size>50</results_size>
+		<task_length>15000</task_length>
+		<required_core>1</required_core>
+		<poisson_interarrival>40</poisson_interarrival>
+	</application>
+	<application name="TYPE_4">
+		<max_delay>200</max_delay>
+		<container_size>25000</container_size>
+		<request_size>1500</request_size>
+		<results_size>100</results_size>
+		<task_length>60000</task_length>
+		<required_core>1</required_core>
+		<poisson_interarrival>40</poisson_interarrival>
+	</application>
+	<application name="TYPE_5">
+		<max_delay>200</max_delay>
+		<container_size>9000</container_size>
+		<request_size>50</request_size>
+		<results_size>50</results_size>
+		<task_length>15000</task_length>
+		<required_core>1</required_core>
+		<poisson_interarrival>40</poisson_interarrival>
+	</application>
+</applications>

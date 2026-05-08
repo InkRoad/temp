@@ -1,0 +1,202 @@
+当前操作系统: Microsoft Windows 11 专业版 (Microsoft Windows NT 10.0.26100.0)
+当前目录: D:\Project\homework\dachuang\SatEdgeSim-master\SatEdgeSim
+当前时间: 2026-05-07 23:22:00 +08:00
+是否检测到 git 仓库: 否
+
+## java -version
+�÷���java [options] <����> [args...]
+           ��ִ���ࣩ
+   ��  java [options] -jar <jar �ļ�> [args...]
+           ��ִ�� jar �ļ���
+   ��  java [options] -m <ģ��>[/<����>] [args...]
+       java [options] --module <ģ��>[/<����>] [args...]
+           ��ִ��ģ���е����ࣩ
+   ��  java [options] <Դ�ļ�> [args]
+           ��ִ�е���Դ�ļ�����
+
+ �����ࡢԴ�ļ���-jar <jar �ļ�>��-m ��
+ --module <ģ��>/<����> ��Ĳ�����Ϊ����
+ ���ݵ����ࡣ
+
+ ���У�ѡ�������
+
+    -cp <Ŀ¼�� zip/jar �ļ���������·��>
+    -classpath <Ŀ¼�� zip/jar �ļ���������·��>
+    --class-path <Ŀ¼�� zip/jar �ļ���������·��>
+                  ʹ�� ; �ָ���, �����������ļ���Ŀ¼, JAR ����
+                  �� ZIP �����б���
+    -p <ģ��·��>
+    --module-path <ģ��·��>...
+                  ; �ָ���Ԫ���б���ÿ��Ԫ�ض���
+                  ģ������ģ���Ŀ¼���ļ�·����ÿ��ģ�鶼��
+                  ģ�黯 JAR ��չ����ģ��Ŀ¼��
+    --upgrade-module-path <ģ��·��>...
+                  ; �ָ���Ԫ���б���ÿ��Ԫ�ض���
+                  ģ������ģ�飨�����滻����ʱӳ���е�
+                  ������ģ�飩��Ŀ¼���ļ�·����ÿ��ģ�鶼��
+                  ģ�黯 JAR ��չ����ģ��Ŀ¼��
+    --add-modules <ģ������>[,<ģ������>...]
+                  ���˳�ʼģ��֮��Ҫ�����ĸ�ģ�顣
+                  <ģ������> ������Ϊ ALL-DEFAULT, ALL-SYSTEM,
+                  ALL-MODULE-PATH.
+    --enable-native-access <module name>[,<module name>...]
+                  ����ִ�����ޱ���������ģ�顣
+                  <module name> ������Ϊ ALL-UNNAMED��
+    --list-modules
+                  �г��ɹ۲�ģ�鲢�˳�
+    -d <module name>
+    --describe-module <ģ������>
+                  ����ģ�鲢�˳�
+    --dry-run     ���� VM ����������, ����ִ�� main ������
+                  �� --dry-run ѡ�������֤����
+                  ģ��ϵͳ����������������ѡ����ܷǳ����á�
+    --validate-modules
+                  ��֤����ģ�鲢�˳�
+                  --validate-modules ѡ����ڲ���
+                  ģ��·����ģ��ĳ�ͻ������������ܷǳ����á�
+    -D<����>=<ֵ>
+                  ����ϵͳ����
+    -verbose:[class|module|gc|jni]
+                  Ϊ������ϵͳ������ϸ���
+    -version      ����Ʒ�汾��������������˳�
+    --version     ����Ʒ�汾�������������˳�
+    -showversion  ����Ʒ�汾�����������������
+    --show-version
+                  ����Ʒ�汾����������������
+    --show-module-resolution
+                  ��������������ʾģ��������
+    -? -h -help
+                  ���˰�����Ϣ�����������
+    --help        ���˰�����Ϣ����������
+    -X            ������ѡ��İ��������������
+    --help-extra  ������ѡ��İ�������������
+    -ea[:<���������>...|:<����>]
+    -enableassertions[:<���������>...|:<����>]
+                  ��ָ�����������ö���
+    -da[:<���������>...|:<����>]
+    -disableassertions[:<���������>...|:<����>]
+                  ��ָ�������Ƚ��ö���
+    -esa | -enablesystemassertions
+                  ����ϵͳ����
+    -dsa | -disablesystemassertions
+                  ����ϵͳ����
+    -agentlib:<����>[=<ѡ��>]
+                  ���ر��������� <����>, ���� -agentlib:jdwp
+                  ������� -agentlib:jdwp=help
+    -agentpath:<·����>[=<ѡ��>]
+                  ������·�������ر���������
+    -javaagent:<jar ·��>[=<ѡ��>]
+                  ���� Java ������Դ���, ����� java.lang.instrument
+    -splash:<ͼ��·��>
+                  ʹ��ָ����ͼ����ʾ������Ļ
+                  �Զ�֧�ֺ�ʹ�� HiDPI ����ͼ��
+                  (�������)��Ӧʼ�ս�δ���ŵ�ͼ���ļ��� (����, image.ext)
+                  ��Ϊ�������ݸ� -splash ѡ�
+                  ���Զ�ѡȡ�ṩ������ʵ�����
+                  ͼ��
+                  �й���ϸ��Ϣ, ����� SplashScreen API �ĵ�
+    @argument �ļ�
+                  һ����������ѡ��Ĳ����ļ�
+    --disable-@files
+                  ��ֹ��һ����չ�����ļ�
+    --enable-preview
+                  �����������ڴ˷��а��Ԥ������
+ҪΪ��ѡ��ָ������, ����ʹ�� --<����>=<ֵ> ��
+--<����> <ֵ>��
+
+
+## javac -version
+�÷�: javac <options> <source files>
+����, ���ܵ�ѡ�����:
+  @<filename>                  ���ļ���ȡѡ����ļ���
+  -Akey[=value]                ���ݸ���ע���������ѡ��
+  --add-modules <ģ��>(,<ģ��>)*
+        ���˳�ʼģ��֮��Ҫ�����ĸ�ģ��; ��� <module>
+                Ϊ ALL-MODULE-PATH,
+        ��Ϊģ��·���е�����ģ�顣
+  --boot-class-path <path>, -bootclasspath <path>
+        �����������ļ���λ��
+  --class-path <path>, -classpath <path>, -cp <path>
+        ָ�������û����ļ�����ע���������λ��
+  -d <directory>               ָ���������ɵ����ļ���λ��
+  -deprecation                 ���ʹ���ѹ�ʱ�� API ��Դλ��
+  --enable-preview             ����Ԥ�����Թ��ܡ�Ҫ�� -source �� --release һ��ʹ�á�
+  -encoding <encoding>         ָ��Դ�ļ�ʹ�õ��ַ�����
+  -endorseddirs <dirs>         ����ǩ���ı�׼·����λ��
+  -extdirs <dirs>              ��������װ��չ��λ��
+  -g                           �������е�����Ϣ
+  -g:{lines,vars,source}       ֻ����ĳЩ������Ϣ
+  -g:none                      �������κε�����Ϣ
+  -h <directory>               ָ���������ɵ�ͷ�ļ���λ��
+  --help, -help, -?            ����˰�����Ϣ
+  --help-extra, -X             �������ѡ��İ���
+  -implicit:{none,class}       ָ���Ƿ�Ϊ��ʽ�����ļ��������ļ�
+  -J<flag>                     ֱ�ӽ� <���> ���ݸ�����ʱϵͳ
+  --limit-modules <ģ��>(,<ģ��>)*
+        ���ƿɹ۲�ģ�������
+  --module <ģ��>(,<ģ��>)*, -m <ģ��>(,<ģ��>)*
+        ֻ����ָ����ģ�飬����ʱ���
+  --module-path <path>, -p <path>
+        ָ������Ӧ�ó���ģ���λ��
+  --module-source-path <module-source-path>
+        ָ�����Ҷ��ģ�������Դ�ļ���λ��
+  --module-version <�汾>        ָ�����ڱ����ģ��汾
+  -nowarn                      �������κξ���
+  -parameters                  ����Ԫ���������ڷ��������ķ���
+  -proc:{none,only,full}       �����Ƿ�ִ����ע������/����롣
+  -processor <class1>[,<class2>,<class3>...]
+        Ҫ���е���ע�������������;
+        �ƹ�Ĭ�ϵ���������
+  --processor-module-path <path>
+        ָ��������ע���������ģ��·��
+  --processor-path <path>, -processorpath <path>
+        ָ��������ע���������λ��
+  -profile <profile>
+        ���ʹ�õ� API ��ָ���������ļ����Ƿ���á�
+        ��ѡ���ѹ�ʱ�����ܻ���δ�����а���ɾ����
+  --release <release>
+        Ϊָ���� Java SE ���а���롣֧�ֵķ��а棺8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21
+  -s <directory>               ָ���������ɵ�Դ�ļ���λ��
+  --source <release>, -source <release>
+        �ṩ��ָ���� Java SE ���а��Դ�����ԡ�֧�ֵķ��а棺8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21
+  --source-path <path>, -sourcepath <path>
+        ָ����������Դ�ļ���λ��
+  --system <jdk>|none          ����ϵͳģ��λ��
+  --target <release>, -target <release>
+        �����ʺ�ָ���� Java SE ���а�����ļ���֧�ֵķ��а棺8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21
+  --upgrade-module-path <path>
+        ���ǿ�����ģ��λ��
+  -verbose                     ����йر���������ִ�еĲ�������Ϣ
+  --version, -version          �汾��Ϣ
+  -Werror                      ���־���ʱ��ֹ����
+
+
+## mvn -version (PATH)
+未检测到: The term 'mvn' is not recognized as a name of a cmdlet, function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+
+## IntelliJ bundled Maven
+[INFO] Scanning for projects...
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  0.078 s
+[INFO] Finished at: 2026-05-07T23:22:02+08:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] No goals have been specified for this build. You must specify a valid lifecycle phase or a goal in the format <plugin-prefix>:<goal> or <plugin-group-id>:<plugin-artifact-id>[:<plugin-version>]:<goal>. Available lifecycle phases are: pre-clean, clean, post-clean, validate, initialize, generate-sources, process-sources, generate-resources, process-resources, compile, process-classes, generate-test-sources, process-test-sources, generate-test-resources, process-test-resources, test-compile, process-test-classes, test, prepare-package, package, pre-integration-test, integration-test, post-integration-test, verify, install, deploy, pre-site, site, post-site, site-deploy. -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/NoGoalSpecifiedException
+
+## gradle -version
+未检测到: The term 'gradle' is not recognized as a name of a cmdlet, function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+
+## python --version
+Python 3.9.8 (tags/v3.9.8:bb3fdcf, Nov  5 2021, 20:48:33) [MSC v.1929 64 bit (AMD64)] on win32
+Type "help", "copyright", "credits" or "license" for more information.
+>>> 
+
