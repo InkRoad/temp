@@ -15,7 +15,7 @@ public class DefaultMobilityModel extends Mobility {
 	}
 
 	public Location getNextLocation(int ID, double Simulationtime, String type) {
-		int time = (int)Simulationtime; //double
+		int time = scaledTimeIndex(Simulationtime, type); //double
 		//String FID = Integer.toString(ID);
 		//String fileName = null;
 		double[] locationPos;
@@ -37,6 +37,14 @@ public class DefaultMobilityModel extends Mobility {
     	currentLocation = new Location(x_position, y_position, z_position);
     	//System.out.println("DefaultMobilityModel: "+type + FID+ " Location is: "+ x_position+","+y_position+","+z_position);
 		return new Location(x_position, y_position, z_position);
+	}
+
+	private int scaledTimeIndex(double simulationTime, String type) {
+		double speedScale = 1.0;
+		if ("mist".equals(type) && simulationParameters.VEHICLE_SPEED > 0) {
+			speedScale = simulationParameters.VEHICLE_SPEED / 60.0;
+		}
+		return Math.max(0, (int) Math.round(simulationTime * speedScale));
 	}
 
 	public Location getCurrentLocation() {

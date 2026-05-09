@@ -1,1 +1,1 @@
-Not a git repository.
+SatEdgeSim-master is not a git repository; no source git log is available.

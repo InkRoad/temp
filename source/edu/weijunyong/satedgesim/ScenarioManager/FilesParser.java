@@ -90,6 +90,11 @@ public class FilesParser {
 					.parseDouble(prop.getProperty("initialization_time").trim()); // seconds
 			simulationParameters.SIMULATION_TIME = simulationParameters.INITIALIZATION_TIME
 					+ (double) 60 * Double.parseDouble(prop.getProperty("simulation_time").trim()); // seconds
+			if (System.getProperty("quick.simulation.minutes") != null) {
+				double quickMinutes = Double.parseDouble(System.getProperty("quick.simulation.minutes").trim());
+				simulationParameters.SIMULATION_TIME = simulationParameters.INITIALIZATION_TIME + 60.0 * quickMinutes;
+				SimLog.println("FilesParser- quick.simulation.minutes override: " + quickMinutes);
+			}
 
 			simulationParameters.DISPLAY_REAL_TIME_CHARTS = Boolean
 					.parseBoolean(prop.getProperty("display_real_time_charts").trim());
@@ -161,6 +166,15 @@ public class FilesParser {
 			//		.parseInt(prop.getProperty("edge_device_counter_size").trim());
 			simulationParameters.EDGE_DEVICE_COUNTER_STEP = simulationParameters.MAX_NUM_OF_EDGE_DEVICES 
 					/simulationParameters.EDGE_DEVICE_COUNTER_TIME;
+			if (System.getProperty("quick.single.device.count") != null) {
+				int quickDeviceCount = Integer.parseInt(System.getProperty("quick.single.device.count").trim());
+				quickDeviceCount = Math.max(1, Math.min(quickDeviceCount, simulationParameters.MAX_NUM_OF_EDGE_DEVICES));
+				simulationParameters.MIN_NUM_OF_EDGE_DEVICES = quickDeviceCount;
+				simulationParameters.MAX_NUM_OF_EDGE_DEVICES = quickDeviceCount;
+				simulationParameters.EDGE_DEVICE_COUNTER_STEP = quickDeviceCount;
+				simulationParameters.EDGE_DEVICE_COUNTER_TIME = 1;
+				SimLog.println("FilesParser- quick.single.device.count override: " + quickDeviceCount);
+			}
 			
 			
 			if (prop.getProperty("speed") != null) {
@@ -195,6 +209,18 @@ public class FilesParser {
 			simulationParameters.ORCHESTRATION_ARCHITECTURES = prop.getProperty("orchestration_architectures")
 					.split(",");
 			simulationParameters.ORCHESTRATION_AlGORITHMS = prop.getProperty("orchestration_algorithms").split(",");
+			if (System.getProperty("quick.orchestration_architectures") != null) {
+				simulationParameters.ORCHESTRATION_ARCHITECTURES = System
+						.getProperty("quick.orchestration_architectures").trim().split(",");
+				SimLog.println("FilesParser- quick.orchestration_architectures override: "
+						+ System.getProperty("quick.orchestration_architectures").trim());
+			}
+			if (System.getProperty("quick.orchestration_algorithms") != null) {
+				simulationParameters.ORCHESTRATION_AlGORITHMS = System
+						.getProperty("quick.orchestration_algorithms").trim().split(",");
+				SimLog.println("FilesParser- quick.orchestration_algorithms override: "
+						+ System.getProperty("quick.orchestration_algorithms").trim());
+			}
 			simulationParameters.DEPLOY_ORCHESTRATOR = prop.getProperty("deploy_orchestrator").trim();
 
 			simulationParameters.CONSUMED_ENERGY_PER_BIT = Double

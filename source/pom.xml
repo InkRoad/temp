@@ -22,6 +22,10 @@
 				<configuration>
 					<source>1.8</source>
 					<target>1.8</target>
+					<excludes>
+						<exclude>reproduce_check_v2_after_fix/**</exclude>
+						<exclude>output/**</exclude>
+					</excludes>
 				</configuration>
 			</plugin>
 		</plugins>
@@ -42,7 +46,7 @@
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-lang3</artifactId>
-			<version>3.1</version>
+			<version>3.12.0</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-math3 -->
 		<dependency>
@@ -90,6 +94,23 @@
 			<groupId>org.knowm.xchart</groupId>
 			<artifactId>xchart</artifactId>
 			<version>3.6.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.nd4j</groupId>
+			<artifactId>nd4j-cuda-11.6</artifactId>
+			<version>1.0.0-M2.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.nd4j</groupId>
+			<artifactId>nd4j-cuda-11.6</artifactId>
+			<version>1.0.0-M2.1</version>
+			<classifier>windows-x86_64</classifier>
+		</dependency>
+		<dependency>
+			<groupId>org.bytedeco</groupId>
+			<artifactId>cuda</artifactId>
+			<version>11.6-8.3-1.5.7</version>
+			<classifier>windows-x86_64-redist</classifier>
 		</dependency>
 	</dependencies>
 </project>

@@ -1,21 +1,13 @@
-[OK] edu/weijunyong/satedgesim/SimulationManager/SimulationManager.java
-[OK] edu/weijunyong/satedgesim/TasksOrchestration/DefaultEdgeOrchestrator.java
-[OK] edu/weijunyong/satedgesim/LocationManager/DefaultMobilityModel.java
-[OK] edu/weijunyong/satedgesim/ScenarioManager/simulationParameters.java
-[OK] settings/simulation_parameters.properties
+[OK] source/pom.xml
+[OK] source/edu/weijunyong/satedgesim/TasksOrchestration/DefaultEdgeOrchestrator.java
+[OK] source/edu/weijunyong/satedgesim/ScenarioManager/FilesParser.java
+[OK] source/edu/weijunyong/satedgesim/LocationManager/DefaultMobilityModel.java
+[OK] source/tools/create_chapter4_speed_results.py
+[OK] source/tools/plot_chapter4_results.py
 [OK] settings/chapter4_simulation_parameters.properties
-[OK] settings/locationflie/cloud/cloud Fixed Position.csv
-[OK] settings/locationflie/cloud/cloud Fixed Position1.csv
-[OK] settings/locationflie/edge_datacenter/edge Fixed Position.csv
-[OK] settings/locationflie/edge_datacenter/edge Fixed Position1.csv
-[OK] settings/locationflie/edge_devices/mist Fixed Position.csv
-[OK] settings/locationflie/edge_devices/mist Fixed Position1.csv
-[OK] output/chapter3/2026-05-07_19-38-31/chapter3_results.csv
-[OK] output/chapter3/2026-05-07_19-38-31/Sequential_simulation.csv
-[OK] output/chapter3/2026-05-07_19-38-31/Sequential_simulation.txt
-[OK] output/chapter4/2026-05-07_22-11-09/chapter4_results.csv
-[OK] output/chapter4/2026-05-07_22-11-09/chapter4_speed_results.csv
-[OK] output/chapter4/2026-05-07_22-11-09/chapter4_ddldo_decisions.csv
-[OK] output/chapter4/2026-05-07_22-11-09/chapter4_ddldo_training.csv
-[OK] output/chapter4/2026-05-07_22-11-09/Sequential_simulation.csv
-[OK] output/chapter4/2026-05-07_22-11-09/Sequential_simulation.txt
+[OK] latest_output/chapter4/2026-05-09_14-16-16/chapter4_results.csv
+[OK] latest_output/chapter4/2026-05-09_14-16-16/chapter4_speed_results.csv
+[OK] latest_output/chapter4/2026-05-09_14-16-16/chapter4_ddldo_decisions.csv
+[OK] latest_output/chapter4/2026-05-09_14-16-16/chapter4_ddldo_training.csv
+[OK] latest_output/chapter4/2026-05-09_14-16-16/chapter4_figures/chapter4_fig_4_5_speed_avg_ete_delay.png
+[OK] latest_output/chapter4/2026-05-09_14-16-16/chapter4_figures/chapter4_fig_4_6_avg_ete_delay.png

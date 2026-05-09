@@ -13,6 +13,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.cloudbus.cloudsim.vms.Vm;
+import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.factory.Nd4j;
+import org.nd4j.linalg.ops.transforms.Transforms;
 
 import edu.weijunyong.satedgesim.DataCentersManager.DataCenter;
 import edu.weijunyong.satedgesim.ScenarioManager.simulationParameters;
@@ -43,21 +46,28 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 	private static final int ACTION_LOCAL = 0;
 	private static final int ACTION_OFFLOAD = 1;
 	private static final int DDLDO_ACTIONS = 4;
-	private static final int DDLDO_INPUTS = 4;
+	private static final int DDLDO_OUTPUTS = 1;
+	private static final int DDLDO_INPUTS = 20;
 	private static final int DDLDO_DNN_COUNT = 3;
-	private static final int DDLDO_HIDDEN_1 = 12;
-	private static final int DDLDO_HIDDEN_2 = 8;
+	private static final int DDLDO_HIDDEN_1 = 64;
+	private static final int DDLDO_HIDDEN_2 = 128;
+	private static final int DDLDO_HIDDEN_3 = 64;
 	private static final int DDLDO_BATCH_SIZE = 256;
 	private static final int DDLDO_MEMORY_SIZE = 4096;
 	private static final int DDLDO_EPOCHS = 1000;
 	private static final int DDLDO_EPOCHS_PER_STEP = 1;
 	private static final double DDLDO_LEARNING_RATE = 0.0001;
+	private static final double DDLDO_BASE_VEHICLE_SPEED = 60.0;
+	private static final String[] DDLDO_CUDA_RUNTIME_DLLS = { "cudart64_110.dll", "cublas64_11.dll",
+			"cudnn64_8.dll" };
 	private final Map<String, Map<Integer, Double>> qTable = new HashMap<>();
 	private final Map<Long, QLearningDecision> qLearningDecisions = new HashMap<>();
 	private final Deque<DdldoSample> ddldoMemory = new ArrayDeque<>();
 	private final Map<Long, DdldoDecision> ddldoPendingDecisions = new HashMap<>();
 	private final List<SimpleDnn> ddldoNetworks = new ArrayList<>();
 	private boolean ddldoInitialized = false;
+	private boolean ddldoBackendLogged = false;
+	private boolean ddldoUsingGpu = false;
 	private int ddldoEpochsTrained = 0;
 
 	protected int findVM(String[] architecture, Task task) {
@@ -130,18 +140,34 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 		private final double objective;
 		private final double delay;
 		private final double energy;
+		private final double actualDelay;
+		private final double estimatedEnergy;
+		private final double actualEnergy;
+		private final boolean actualEnergyAvailable;
+		private final String delayFeedbackType;
+		private final String energyFeedbackType;
+		private final double observedCost;
+		private final double finalTrainingCost;
 		private final boolean success;
 		private final String failureReason;
 
-		private DdldoSample(double[] input, double[] label, DdldoDecision decision) {
+		private DdldoSample(double[] input, double label, DdldoDecision decision) {
 			this.input = input;
-			this.label = label;
+			this.label = new double[] { label };
 			this.action = decision.action;
 			this.vmIndex = decision.vmIndex;
 			this.objective = decision.objective;
 			this.delay = decision.delay;
 			this.energy = decision.energy;
-			this.success = decision.feasible;
+			this.actualDelay = decision.actualDelay;
+			this.estimatedEnergy = decision.energy;
+			this.actualEnergy = decision.actualEnergy;
+			this.actualEnergyAvailable = decision.actualEnergyAvailable;
+			this.delayFeedbackType = decision.delayFeedbackType;
+			this.energyFeedbackType = decision.energyFeedbackType;
+			this.observedCost = decision.observedCost;
+			this.finalTrainingCost = decision.finalTrainingCost;
+			this.success = decision.actualSuccess;
 			this.failureReason = decision.failureReason;
 		}
 	}
@@ -150,62 +176,193 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 		private final int action;
 		private final int vmIndex;
 		private final int targetId;
+		private final double[] input;
 		private double objective;
+		private double dnnScore;
+		private double finalCost;
 		private final double delay;
 		private final double energy;
+		private final double currentDistance;
+		private final double projectedDistance;
+		private final double propagationDelay;
+		private final double transmissionDelay;
+		private final double executionDelay;
+		private final double vmLoad;
 		private final double coverageRemainingTime;
 		private final double estimatedFinishTime;
+		private final boolean mobilityRisk;
+		private final boolean delayRisk;
+		private final boolean offloadingPossible;
 		private final boolean coverageFeasible;
 		private final boolean latencyFeasible;
 		private final boolean energyFeasible;
 		private final boolean linkFeasible;
 		private final boolean resourceFeasible;
 		private final boolean feasible;
+		private final double energyBefore;
+		private double actualDelay = -1.0;
+		private double actualEnergy = -1.0;
+		private boolean actualEnergyAvailable = false;
+		private boolean actualSuccess;
+		private String delayFeedbackType = "estimated";
+		private String energyFeedbackType = "estimated_at_decision";
+		private double observedCost;
+		private double finalTrainingCost;
 		private String failureReason;
 		private int candidateCount;
 		private String candidateActions = "";
 		private String candidateVmIds = "";
 
-		private DdldoDecision(int action, int vmIndex, int targetId, double objective, double delay, double energy,
-				double coverageRemainingTime, double estimatedFinishTime, boolean coverageFeasible,
-				boolean latencyFeasible, boolean energyFeasible, boolean linkFeasible, boolean resourceFeasible,
+		private DdldoDecision(int action, int vmIndex, int targetId, double[] input, double objective, double dnnScore,
+				double finalCost, double delay, double energy, double currentDistance, double projectedDistance,
+				double propagationDelay, double transmissionDelay, double executionDelay, double vmLoad,
+				double coverageRemainingTime, double estimatedFinishTime, boolean mobilityRisk, boolean delayRisk,
+				boolean offloadingPossible, boolean coverageFeasible, boolean latencyFeasible, boolean energyFeasible,
+				boolean linkFeasible, boolean resourceFeasible, double energyBefore,
 				String failureReason) {
 			this.action = action;
 			this.vmIndex = vmIndex;
 			this.targetId = targetId;
+			this.input = input;
 			this.objective = objective;
+			this.dnnScore = dnnScore;
+			this.finalCost = finalCost;
 			this.delay = delay;
 			this.energy = energy;
+			this.currentDistance = currentDistance;
+			this.projectedDistance = projectedDistance;
+			this.propagationDelay = propagationDelay;
+			this.transmissionDelay = transmissionDelay;
+			this.executionDelay = executionDelay;
+			this.vmLoad = vmLoad;
 			this.coverageRemainingTime = coverageRemainingTime;
 			this.estimatedFinishTime = estimatedFinishTime;
+			this.mobilityRisk = mobilityRisk;
+			this.delayRisk = delayRisk;
+			this.offloadingPossible = offloadingPossible;
 			this.coverageFeasible = coverageFeasible;
 			this.latencyFeasible = latencyFeasible;
 			this.energyFeasible = energyFeasible;
 			this.linkFeasible = linkFeasible;
 			this.resourceFeasible = resourceFeasible;
-			this.feasible = coverageFeasible && latencyFeasible && energyFeasible && linkFeasible && resourceFeasible;
+			this.feasible = offloadingPossible && coverageFeasible && latencyFeasible && energyFeasible && linkFeasible
+					&& resourceFeasible && !mobilityRisk;
+			this.energyBefore = energyBefore;
+			this.actualSuccess = this.feasible;
+			this.observedCost = objective;
+			this.finalTrainingCost = finalCost;
 			this.failureReason = failureReason;
 		}
 	}
 
+	private static boolean cudaRuntimeDllsAvailable() {
+		if (cudaRuntimeDllsOnPath()) {
+			return true;
+		}
+		return loadCudaRuntimeFromJavacpp();
+	}
+
+	private static boolean cudaRuntimeDllsOnPath() {
+		for (String dll : DDLDO_CUDA_RUNTIME_DLLS) {
+			if (!isDllOnPath(dll)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private static boolean loadCudaRuntimeFromJavacpp() {
+		try {
+			Class<?> loader = Class.forName("org.bytedeco.javacpp.Loader");
+			String[] cudaClasses = {
+					"org.bytedeco.cuda.global.cudart",
+					"org.bytedeco.cuda.global.cublas"
+			};
+			for (String className : cudaClasses) {
+				Class<?> cudaClass = Class.forName(className);
+				loader.getMethod("load", Class.class).invoke(null, cudaClass);
+			}
+			return true;
+		} catch (Throwable e) {
+			return false;
+		}
+	}
+
+	private static boolean isDllOnPath(String dllName) {
+		String cudaPath = System.getenv("CUDA_PATH");
+		if (fileExists(cudaPath, "bin", dllName)) {
+			return true;
+		}
+		String path = System.getenv("PATH");
+		if (path == null) {
+			return false;
+		}
+		String[] entries = path.split(File.pathSeparator);
+		for (String entry : entries) {
+			if (fileExists(entry, null, dllName)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean fileExists(String base, String child, String fileName) {
+		if (base == null || base.trim().isEmpty()) {
+			return false;
+		}
+		File dir = child == null ? new File(base) : new File(base, child);
+		return new File(dir, fileName).exists();
+	}
+
 	private static class SimpleDnn {
+		private boolean nd4jEnabled;
+		private INDArray nw1;
+		private INDArray nb1;
+		private INDArray nw2;
+		private INDArray nb2;
+		private INDArray nw3;
+		private INDArray nb3;
+		private INDArray nw4;
+		private INDArray nb4;
 		private final double[][] w1;
 		private final double[] b1;
 		private final double[][] w2;
 		private final double[] b2;
 		private final double[][] w3;
 		private final double[] b3;
+		private final double[][] w4;
+		private final double[] b4;
 
 		private SimpleDnn() {
 			w1 = new double[DDLDO_INPUTS][DDLDO_HIDDEN_1];
 			b1 = new double[DDLDO_HIDDEN_1];
 			w2 = new double[DDLDO_HIDDEN_1][DDLDO_HIDDEN_2];
 			b2 = new double[DDLDO_HIDDEN_2];
-			w3 = new double[DDLDO_HIDDEN_2][DDLDO_ACTIONS];
-			b3 = new double[DDLDO_ACTIONS];
+			w3 = new double[DDLDO_HIDDEN_2][DDLDO_HIDDEN_3];
+			b3 = new double[DDLDO_HIDDEN_3];
+			w4 = new double[DDLDO_HIDDEN_3][DDLDO_OUTPUTS];
+			b4 = new double[DDLDO_OUTPUTS];
 			init(w1);
 			init(w2);
 			init(w3);
+			init(w4);
+			if (!cudaRuntimeDllsAvailable()) {
+				nd4jEnabled = false;
+			} else {
+				try {
+				nw1 = nd4jWeights(DDLDO_INPUTS, DDLDO_HIDDEN_1);
+				nb1 = Nd4j.zeros(1, DDLDO_HIDDEN_1);
+				nw2 = nd4jWeights(DDLDO_HIDDEN_1, DDLDO_HIDDEN_2);
+				nb2 = Nd4j.zeros(1, DDLDO_HIDDEN_2);
+				nw3 = nd4jWeights(DDLDO_HIDDEN_2, DDLDO_HIDDEN_3);
+				nb3 = Nd4j.zeros(1, DDLDO_HIDDEN_3);
+				nw4 = nd4jWeights(DDLDO_HIDDEN_3, DDLDO_OUTPUTS);
+				nb4 = Nd4j.zeros(1, DDLDO_OUTPUTS);
+				nd4jEnabled = true;
+				} catch (Throwable e) {
+					nd4jEnabled = false;
+				}
+			}
 		}
 
 		private void init(double[][] weights) {
@@ -216,31 +373,178 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 			}
 		}
 
-		private double[] predict(double[] input) {
-			double[] h1 = sigmoid(add(matmul(input, w1), b1));
-			double[] h2 = sigmoid(add(matmul(h1, w2), b2));
-			return softmax(add(matmul(h2, w3), b3));
+		private double predict(double[] input) {
+			if (nd4jEnabled) {
+				try {
+					return predictNd4j(input);
+				} catch (Throwable e) {
+					nd4jEnabled = false;
+					SimLog.println("DefaultEdgeOrchestrator- Warning: ND4J DNN prediction failed, falling back to CPU arrays: "
+							+ e.getMessage());
+				}
+			}
+			return predictCpu(input);
+		}
+
+		private double[] predictBatch(double[][] inputs) {
+			if (inputs.length == 0) {
+				return new double[0];
+			}
+			if (nd4jEnabled) {
+				try {
+					return predictBatchNd4j(inputs);
+				} catch (Throwable e) {
+					nd4jEnabled = false;
+					SimLog.println("DefaultEdgeOrchestrator- Warning: ND4J DNN batch prediction failed, falling back to CPU arrays: "
+							+ e.getMessage());
+				}
+			}
+			double[] output = new double[inputs.length];
+			for (int i = 0; i < inputs.length; i++) {
+				output[i] = predictCpu(inputs[i]);
+			}
+			return output;
 		}
 
 		private double train(List<DdldoSample> samples) {
+			if (nd4jEnabled) {
+				try {
+					return trainNd4j(samples);
+				} catch (Throwable e) {
+					nd4jEnabled = false;
+					SimLog.println("DefaultEdgeOrchestrator- Warning: ND4J DNN training failed, falling back to CPU arrays: "
+							+ e.getMessage());
+				}
+			}
+			return trainCpu(samples);
+		}
+
+		private INDArray nd4jWeights(int rows, int cols) {
+			return Nd4j.rand(new int[] { rows, cols }).subi(0.5).muli(0.02);
+		}
+
+		private double predictNd4j(double[] input) {
+			INDArray x = Nd4j.create(input).reshape(1, DDLDO_INPUTS).castTo(nw1.dataType());
+			return forwardNd4j(x)[3].getDouble(0);
+		}
+
+		private double[] predictBatchNd4j(double[][] inputs) {
+			INDArray x = Nd4j.create(flatten(inputs)).reshape(inputs.length, DDLDO_INPUTS).castTo(nw1.dataType());
+			INDArray output = forwardNd4j(x)[3];
+			double[] predictions = new double[inputs.length];
+			for (int i = 0; i < predictions.length; i++) {
+				predictions[i] = output.getDouble(i, 0);
+			}
+			Nd4j.getExecutioner().commit();
+			return predictions;
+		}
+
+		private double trainNd4j(List<DdldoSample> samples) {
+			if (samples.isEmpty()) {
+				return 0.0;
+			}
+			INDArray x = Nd4j.create(flattenInputs(samples)).reshape(samples.size(), DDLDO_INPUTS).castTo(nw1.dataType());
+			INDArray y = Nd4j.create(flattenLabels(samples)).reshape(samples.size(), DDLDO_OUTPUTS).castTo(nw4.dataType());
+			INDArray[] forward = forwardNd4j(x);
+			INDArray h1 = forward[0];
+			INDArray h2 = forward[1];
+			INDArray h3 = forward[2];
+			INDArray output = forward[3];
+			INDArray error = output.sub(y);
+			double loss = error.mul(error).sumNumber().doubleValue();
+
+			INDArray delta4 = error.mul(sigmoidDerivative(output));
+			INDArray delta3 = delta4.mmul(nw4.transpose()).mul(sigmoidDerivative(h3));
+			INDArray delta2 = delta3.mmul(nw3.transpose()).mul(sigmoidDerivative(h2));
+			INDArray delta1 = delta2.mmul(nw2.transpose()).mul(sigmoidDerivative(h1));
+
+			double scale = DDLDO_LEARNING_RATE / Math.max(1, samples.size());
+			nw4.subi(h3.transpose().mmul(delta4).muli(scale));
+			nb4.subi(delta4.mean(0).muli(DDLDO_LEARNING_RATE));
+			nw3.subi(h2.transpose().mmul(delta3).muli(scale));
+			nb3.subi(delta3.mean(0).muli(DDLDO_LEARNING_RATE));
+			nw2.subi(h1.transpose().mmul(delta2).muli(scale));
+			nb2.subi(delta2.mean(0).muli(DDLDO_LEARNING_RATE));
+			nw1.subi(x.transpose().mmul(delta1).muli(scale));
+			nb1.subi(delta1.mean(0).muli(DDLDO_LEARNING_RATE));
+			Nd4j.getExecutioner().commit();
+			return loss / samples.size();
+		}
+
+		private double[] flatten(double[][] inputs) {
+			double[] flat = new double[inputs.length * DDLDO_INPUTS];
+			for (int row = 0; row < inputs.length; row++) {
+				System.arraycopy(inputs[row], 0, flat, row * DDLDO_INPUTS, DDLDO_INPUTS);
+			}
+			return flat;
+		}
+
+		private double[] flattenInputs(List<DdldoSample> samples) {
+			double[] flat = new double[samples.size() * DDLDO_INPUTS];
+			for (int row = 0; row < samples.size(); row++) {
+				System.arraycopy(samples.get(row).input, 0, flat, row * DDLDO_INPUTS, DDLDO_INPUTS);
+			}
+			return flat;
+		}
+
+		private double[] flattenLabels(List<DdldoSample> samples) {
+			double[] flat = new double[samples.size() * DDLDO_OUTPUTS];
+			for (int row = 0; row < samples.size(); row++) {
+				System.arraycopy(samples.get(row).label, 0, flat, row * DDLDO_OUTPUTS, DDLDO_OUTPUTS);
+			}
+			return flat;
+		}
+
+		private INDArray[] forwardNd4j(INDArray x) {
+			INDArray h1 = Transforms.sigmoid(x.mmul(nw1).addRowVector(nb1), false);
+			INDArray h2 = Transforms.sigmoid(h1.mmul(nw2).addRowVector(nb2), false);
+			INDArray h3 = Transforms.sigmoid(h2.mmul(nw3).addRowVector(nb3), false);
+			INDArray output = Transforms.sigmoid(h3.mmul(nw4).addRowVector(nb4), false);
+			return new INDArray[] { h1, h2, h3, output };
+		}
+
+		private INDArray sigmoidDerivative(INDArray activated) {
+			return activated.mul(activated.rsub(1.0));
+		}
+
+		private double predictCpu(double[] input) {
+			double[] h1 = sigmoid(add(matmul(input, w1), b1));
+			double[] h2 = sigmoid(add(matmul(h1, w2), b2));
+			double[] h3 = sigmoid(add(matmul(h2, w3), b3));
+			return sigmoid(add(matmul(h3, w4), b4))[0];
+		}
+
+		private double trainCpu(List<DdldoSample> samples) {
 			double loss = 0.0;
 			for (DdldoSample sample : samples) {
 				double[] z1 = add(matmul(sample.input, w1), b1);
 				double[] h1 = sigmoid(z1);
 				double[] z2 = add(matmul(h1, w2), b2);
 				double[] h2 = sigmoid(z2);
-				double[] output = softmax(add(matmul(h2, w3), b3));
-				loss += crossEntropy(output, sample.label);
+				double[] z3 = add(matmul(h2, w3), b3);
+				double[] h3 = sigmoid(z3);
+				double[] output = sigmoid(add(matmul(h3, w4), b4));
+				double error = output[0] - sample.label[0];
+				loss += error * error;
 
-				double[] delta3 = new double[DDLDO_ACTIONS];
-				for (int i = 0; i < DDLDO_ACTIONS; i++) {
-					delta3[i] = output[i] - sample.label[i];
+				double[] delta4 = new double[DDLDO_OUTPUTS];
+				for (int i = 0; i < DDLDO_OUTPUTS; i++) {
+					delta4[i] = (output[i] - sample.label[i]) * output[i] * (1.0 - output[i]);
+				}
+
+				double[] delta3 = new double[DDLDO_HIDDEN_3];
+				for (int i = 0; i < DDLDO_HIDDEN_3; i++) {
+					double sum = 0.0;
+					for (int j = 0; j < DDLDO_OUTPUTS; j++) {
+						sum += delta4[j] * w4[i][j];
+					}
+					delta3[i] = sum * h3[i] * (1.0 - h3[i]);
 				}
 
 				double[] delta2 = new double[DDLDO_HIDDEN_2];
 				for (int i = 0; i < DDLDO_HIDDEN_2; i++) {
 					double sum = 0.0;
-					for (int j = 0; j < DDLDO_ACTIONS; j++) {
+					for (int j = 0; j < DDLDO_HIDDEN_3; j++) {
 						sum += delta3[j] * w3[i][j];
 					}
 					delta2[i] = sum * h2[i] * (1.0 - h2[i]);
@@ -255,6 +559,8 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 					delta1[i] = sum * h1[i] * (1.0 - h1[i]);
 				}
 
+				update(w4, h3, delta4);
+				update(b4, delta4);
 				update(w3, h2, delta3);
 				update(b3, delta3);
 				update(w2, h1, delta2);
@@ -291,41 +597,6 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 				output[i] = 1.0 / (1.0 + Math.exp(-values[i]));
 			}
 			return output;
-		}
-
-		private static double[] softmax(double[] values) {
-			double max = -Double.MAX_VALUE;
-			for (double value : values) {
-				if (value > max) {
-					max = value;
-				}
-			}
-			double sum = 0.0;
-			double[] output = new double[values.length];
-			for (int i = 0; i < values.length; i++) {
-				output[i] = Math.exp(values[i] - max);
-				sum += output[i];
-			}
-			if (sum <= 0 || Double.isNaN(sum) || Double.isInfinite(sum)) {
-				for (int i = 0; i < output.length; i++) {
-					output[i] = 1.0 / output.length;
-				}
-				return output;
-			}
-			for (int i = 0; i < output.length; i++) {
-				output[i] /= sum;
-			}
-			return output;
-		}
-
-		private static double crossEntropy(double[] output, double[] label) {
-			double loss = 0.0;
-			for (int i = 0; i < output.length; i++) {
-				if (label[i] > 0) {
-					loss -= label[i] * Math.log(Math.max(1.0E-12, output[i]));
-				}
-			}
-			return loss;
 		}
 
 		private void update(double[][] weights, double[] input, double[] delta) {
@@ -542,26 +813,25 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 
 	private int ddldo(String[] architecture, Task task) {
 		initializeDdldo();
-		MetricSnapshot metrics = collectMetrics(task);
 		List<Integer> possibleVms = possibleVms(architecture, task);
 		if (possibleVms.isEmpty()) {
 			return -1;
 		}
 
-		double[] input = ddldoInput(task);
-		List<DdldoDecision> candidates = ddldoCandidateDecisions(task, input, possibleVms, metrics);
-		DdldoDecision selected = selectBestDdldoDecision(candidates);
+		List<DdldoDecision> candidates = ddldoCandidateDecisions(task, possibleVms);
+		List<DdldoDecision> dnnCandidates = ddldoDnnCandidatePool(candidates);
+		DdldoDecision selected = selectBestDdldoDecision(dnnCandidates);
 		if (selected == null) {
-			selected = fallbackDdldoDecision(task, possibleVms, metrics);
+			selected = selectBestDdldoDecision(candidates);
+		}
+		if (selected == null) {
+			selected = fallbackDdldoDecision(candidates);
 		}
 		if (selected == null || selected.vmIndex == -1) {
 			return -1;
 		}
 		attachCandidateSummary(selected, candidates);
-		rememberDdldo(input, selected);
 		ddldoPendingDecisions.put(task.getId(), selected);
-		double loss = trainDdldo();
-		appendDdldoTrainingLog(loss, selected);
 		return selected.vmIndex;
 	}
 
@@ -737,6 +1007,7 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 		if (ddldoInitialized) {
 			return;
 		}
+		logDdldoBackend();
 		for (int i = 0; i < DDLDO_DNN_COUNT; i++) {
 			ddldoNetworks.add(new SimpleDnn());
 		}
@@ -745,107 +1016,88 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 		ddldoInitialized = true;
 	}
 
-	private double[] ddldoInput(Task task) {
-		return new double[] {
-				normalize(task.getFileSize(), 100000.0),
-				normalize(task.getOutputSize(), 100000.0),
-				latencySensitivity(task),
-				normalize(simulationParameters.VEHICLE_SPEED, 120.0)
-		};
+	private void logDdldoBackend() {
+		if (ddldoBackendLogged) {
+			return;
+		}
+		ddldoBackendLogged = true;
+		String backend = "unavailable";
+		String executioner = "unavailable";
+		if (!cudaRuntimeDllsAvailable()) {
+			backend = "unavailable (CUDA 11.6 runtime DLLs not found)";
+			executioner = "unavailable";
+			ddldoUsingGpu = false;
+		} else {
+			try {
+				Class<?> nd4j = Class.forName("org.nd4j.linalg.factory.Nd4j");
+				Object backendObject = nd4j.getMethod("getBackend").invoke(null);
+				Object executionerObject = nd4j.getMethod("getExecutioner").invoke(null);
+				backend = backendObject == null ? "null" : backendObject.getClass().getName();
+				executioner = executionerObject == null ? "null" : executionerObject.getClass().getName();
+				String name = (backend + " " + executioner).toLowerCase();
+				ddldoUsingGpu = name.contains("cuda") || name.contains("jcublas");
+			} catch (Throwable e) {
+				backend = "unavailable (" + e.getClass().getSimpleName() + ")";
+				executioner = "unavailable";
+				ddldoUsingGpu = false;
+			}
+		}
+		SimLog.println("DDLDO DNN structure: input -> 64 -> 128 -> 64 -> output");
+		SimLog.println("ND4J backend: " + backend);
+		SimLog.println("ND4J executioner: " + executioner);
+		SimLog.println("DDLDO DNN using GPU: " + ddldoUsingGpu);
 	}
 
 	private double normalize(double value, double max) {
 		return Math.max(0.0, Math.min(1.0, value / Math.max(1.0, max)));
 	}
 
-	private int argMax(double[] values) {
-		int best = 0;
-		for (int i = 1; i < values.length; i++) {
-			if (values[i] > values[best]) {
-				best = i;
-			}
-		}
-		return best;
-	}
-
-	private List<DdldoDecision> ddldoCandidateDecisions(Task task, double[] input, List<Integer> possibleVms,
-			MetricSnapshot metrics) {
+	private List<DdldoDecision> ddldoCandidateDecisions(Task task, List<Integer> possibleVms) {
 		List<DdldoDecision> candidates = new ArrayList<>();
-		List<Integer> usedActions = new ArrayList<>();
-		for (SimpleDnn network : ddldoNetworks) {
-			double[] scores = adjustedDdldoScores(task, network.predict(input));
-			DdldoDecision decision = bestDecisionFromScores(task, scores, possibleVms, metrics, usedActions);
+		for (int vm : possibleVms) {
+			DdldoDecision decision = evaluateDdldoDecision(task, vm);
 			if (decision != null) {
 				candidates.add(decision);
-				usedActions.add(decision.action);
-			}
-		}
-		if (candidates.isEmpty()) {
-			DdldoDecision fallback = fallbackDdldoDecision(task, possibleVms, metrics);
-			if (fallback != null) {
-				candidates.add(fallback);
 			}
 		}
 		return candidates;
 	}
 
-	private double[] adjustedDdldoScores(Task task, double[] scores) {
-		double[] adjusted = scores.clone();
-		double latency = latencySensitivity(task);
-		double data = dataIntensity(task);
-		adjusted[0] += 0.20 * latency;
-		adjusted[1] += 0.18 * latency;
-		adjusted[2] += 0.08 * (1.0 - latency);
-		adjusted[3] += 0.12 * data;
-		return adjusted;
-	}
-
-	private DdldoDecision bestDecisionFromScores(Task task, double[] scores, List<Integer> possibleVms,
-			MetricSnapshot metrics, List<Integer> usedActions) {
-		boolean[] visited = new boolean[scores.length];
-		for (int step = 0; step < scores.length; step++) {
-			int action = -1;
-			double bestScore = -Double.MAX_VALUE;
-			for (int i = 0; i < scores.length; i++) {
-				if (!visited[i] && scores[i] > bestScore && (!usedActions.contains(i) || usedActions.size() >= DDLDO_DNN_COUNT)) {
-					bestScore = scores[i];
-					action = i;
+	private List<DdldoDecision> ddldoDnnCandidatePool(List<DdldoDecision> candidates) {
+		List<DdldoDecision> pool = new ArrayList<>();
+		double[][] inputs = new double[candidates.size()][];
+		for (int i = 0; i < candidates.size(); i++) {
+			inputs[i] = candidates.get(i).input;
+		}
+		for (SimpleDnn network : ddldoNetworks) {
+			DdldoDecision best = null;
+			double bestScore = Double.MAX_VALUE;
+			double[] predictions = network.predictBatch(inputs);
+			for (int i = 0; i < candidates.size(); i++) {
+				DdldoDecision candidate = candidates.get(i);
+				double predicted = predictions[i];
+				candidate.dnnScore += predicted / Math.max(1, ddldoNetworks.size());
+				double score = predicted + 0.15 * normalizeCost(candidate.objective);
+				if (!candidate.feasible) {
+					score += 0.5;
+				}
+				if (score < bestScore) {
+					bestScore = score;
+					best = candidate;
 				}
 			}
-			if (action == -1) {
-				return null;
-			}
-			visited[action] = true;
-			DdldoDecision decision = selectDecisionForAction(task, action, possibleVms, metrics, bestScore);
-			if (decision != null) {
-				return decision;
+			if (best != null && !pool.contains(best)) {
+				pool.add(best);
 			}
 		}
-		return null;
-	}
-
-	private DdldoDecision selectDecisionForAction(Task task, int action, List<Integer> possibleVms,
-			MetricSnapshot metrics, double actionScore) {
-		DdldoDecision bestFeasible = null;
-		DdldoDecision bestAny = null;
-		double bestFeasibleScore = Double.MAX_VALUE;
-		double bestAnyScore = Double.MAX_VALUE;
-		for (int vm : possibleVms) {
-			if (ddldoActionForVm(task, vm) != action) {
-				continue;
-			}
-			DdldoDecision decision = evaluateDdldoDecision(task, vm, metrics);
-			double score = decision.objective - 0.05 * actionScore;
-			if (decision.feasible && score < bestFeasibleScore) {
-				bestFeasibleScore = score;
-				bestFeasible = decision;
-			}
-			if (score < bestAnyScore) {
-				bestAnyScore = score;
-				bestAny = decision;
-			}
+		DdldoDecision bestCost = fallbackDdldoDecision(candidates);
+		if (bestCost != null && !pool.contains(bestCost)) {
+			pool.add(bestCost);
 		}
-		return bestFeasible != null ? bestFeasible : bestAny;
+		for (DdldoDecision candidate : candidates) {
+			candidate.finalCost = candidate.objective + 0.25 * candidate.dnnScore;
+		}
+		return pool;
 	}
 
 	private DdldoDecision selectBestDdldoDecision(List<DdldoDecision> candidates) {
@@ -854,23 +1106,22 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 			if (!decision.feasible) {
 				continue;
 			}
-			if (best == null || decision.objective < best.objective) {
+			if (best == null || decision.finalCost < best.finalCost) {
 				best = decision;
 			}
 		}
 		return best;
 	}
 
-	private DdldoDecision fallbackDdldoDecision(Task task, List<Integer> possibleVms, MetricSnapshot metrics) {
+	private DdldoDecision fallbackDdldoDecision(List<DdldoDecision> candidates) {
 		DdldoDecision bestDeadline = null;
 		DdldoDecision bestAny = null;
-		for (int vm : possibleVms) {
-			DdldoDecision decision = evaluateDdldoDecision(task, vm, metrics);
-			if (bestAny == null || decision.objective < bestAny.objective) {
+		for (DdldoDecision decision : candidates) {
+			if (bestAny == null || decision.finalCost < bestAny.finalCost) {
 				bestAny = decision;
 			}
-			if (decision.latencyFeasible && decision.linkFeasible && decision.resourceFeasible
-					&& (bestDeadline == null || ddldoFallbackScore(task, decision) < ddldoFallbackScore(task, bestDeadline))) {
+			if (decision.latencyFeasible && decision.linkFeasible && decision.resourceFeasible && !decision.mobilityRisk
+					&& (bestDeadline == null || decision.finalCost < bestDeadline.finalCost)) {
 				bestDeadline = decision;
 			}
 		}
@@ -881,33 +1132,36 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 		return selected;
 	}
 
-	private double ddldoFallbackScore(Task task, DdldoDecision decision) {
-		DataCenter destination = (DataCenter) vmList.get(decision.vmIndex).getHost().getDatacenter();
-		double distance = SimulationManager.getdistance(destination, task.getEdgeDevice());
-		double localityBonus = destination == task.getEdgeDevice() ? -1.0 : 0.0;
-		return distance / Math.max(1.0, simulationParameters.CLOUD_RANGE) + decision.objective + localityBonus;
-	}
-
-	private DdldoDecision evaluateDdldoDecision(Task task, int vm, MetricSnapshot metrics) {
+	private DdldoDecision evaluateDdldoDecision(Task task, int vm) {
 		DataCenter destination = (DataCenter) vmList.get(vm).getHost().getDatacenter();
 		int action = ddldoActionForVm(task, vm);
-		double delay = metrics.propagationDelay.get(vm) + metrics.executionDelay.get(vm);
-		double energy = metrics.energyRaw.get(vm);
+		double currentDistance = SimulationManager.getdistance(destination, task.getEdgeDevice());
+		double executionDelay = taskExecutionDelay(task, vm);
+		double projectedDistance = speedAwareDistance(task, destination, currentDistance, executionDelay);
+		double propagationDelay = taskPropagationDelay(task, destination, projectedDistance);
+		double transmissionDelay = taskTransferDelay(task, destination);
+		double delay = propagationDelay + transmissionDelay + executionDelay;
+		double energy = Math.max(1.0, estimatedTaskEnergy(task, vm, projectedDistance, executionDelay));
 		double coverageRemainingTime = coverageRemainingTime(task, destination, delay);
 		double estimatedFinishTime = simulationManager.getSimulation().clock() + delay;
+		boolean delayRisk = delay > task.getMaxLatency();
+		boolean mobilityRisk = mobilityRisk(task, destination, delay, coverageRemainingTime, currentDistance, projectedDistance);
+		boolean offloadingPossible = destination == task.getEdgeDevice()
+				|| (SimulationManager.issetlink(task.getEdgeDevice(), destination) && !destination.isDead());
 		boolean coverageFeasible = coverageRemainingTime < 0 || delay <= coverageRemainingTime;
-		boolean latencyFeasible = delay <= task.getMaxLatency();
+		boolean latencyFeasible = !delayRisk;
 		boolean energyFeasible = energyFeasible(destination, energy);
 		boolean linkFeasible = destination == task.getEdgeDevice() || SimulationManager.issetlink(task.getEdgeDevice(), destination);
 		boolean resourceFeasible = !destination.isDead() && vmList.get(vm).getMips() > 0;
+		double vmLoad = orchestrationHistory.get(vm).size();
 		String failureReason = ddldoFailureReason(coverageFeasible, latencyFeasible, energyFeasible, linkFeasible,
-				resourceFeasible);
-		double objective = chapter4Objective(vm, metrics);
-		if (!latencyFeasible) {
+				resourceFeasible, mobilityRisk, offloadingPossible);
+		double objective = chapter4Objective(delay, energy, currentDistance, projectedDistance, vmLoad);
+		if (delayRisk) {
 			objective += 2.0 + (delay - task.getMaxLatency()) / Math.max(1.0, task.getMaxLatency());
 		}
 		if (!coverageFeasible) {
-			objective += 1.5;
+			objective += 2.0 + (delay - Math.max(0.0, coverageRemainingTime)) / Math.max(1.0, task.getMaxLatency());
 		}
 		if (!energyFeasible) {
 			objective += 1.0;
@@ -915,13 +1169,26 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 		if (!linkFeasible || !resourceFeasible) {
 			objective += 3.0;
 		}
-		return new DdldoDecision(action, vm, targetId(destination), objective, delay, energy, coverageRemainingTime,
-				estimatedFinishTime, coverageFeasible, latencyFeasible, energyFeasible, linkFeasible, resourceFeasible,
+		if (mobilityRisk) {
+			objective += 1.5;
+		}
+		if (!offloadingPossible) {
+			objective += 4.0;
+		}
+		double[] input = ddldoInput(task, destination, vm, currentDistance, projectedDistance, propagationDelay,
+				transmissionDelay, executionDelay, energy, coverageRemainingTime, vmLoad, mobilityRisk, delayRisk,
+				offloadingPossible);
+		double finalCost = objective;
+		double energyBefore = energySnapshot(task.getEdgeDevice(), destination);
+		return new DdldoDecision(action, vm, targetId(destination), input, objective, 0.0, finalCost, delay, energy,
+				currentDistance, projectedDistance, propagationDelay, transmissionDelay, executionDelay, vmLoad,
+				coverageRemainingTime, estimatedFinishTime, mobilityRisk, delayRisk, offloadingPossible,
+				coverageFeasible, latencyFeasible, energyFeasible, linkFeasible, resourceFeasible, energyBefore,
 				failureReason);
 	}
 
 	private String ddldoFailureReason(boolean coverageFeasible, boolean latencyFeasible, boolean energyFeasible,
-			boolean linkFeasible, boolean resourceFeasible) {
+			boolean linkFeasible, boolean resourceFeasible, boolean mobilityRisk, boolean offloadingPossible) {
 		List<String> reasons = new ArrayList<>();
 		if (!coverageFeasible) {
 			reasons.add("coverage");
@@ -938,6 +1205,12 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 		if (!resourceFeasible) {
 			reasons.add("resource");
 		}
+		if (mobilityRisk) {
+			reasons.add("mobility");
+		}
+		if (!offloadingPossible) {
+			reasons.add("offloading");
+		}
 		return String.join("|", reasons);
 	}
 
@@ -946,6 +1219,121 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 			return false;
 		}
 		return energy >= 0.0;
+	}
+
+	private double energySnapshot(DataCenter source, DataCenter destination) {
+		double sourceEnergy = dataCenterEnergy(source);
+		double destinationEnergy = destination == source ? 0.0 : dataCenterEnergy(destination);
+		if (Double.isNaN(sourceEnergy) || Double.isNaN(destinationEnergy)) {
+			return Double.NaN;
+		}
+		return sourceEnergy + destinationEnergy;
+	}
+
+	private double dataCenterEnergy(DataCenter dataCenter) {
+		if (dataCenter == null || dataCenter.getEnergyModel() == null) {
+			return Double.NaN;
+		}
+		return dataCenter.getEnergyModel().getTotalEnergyConsumption();
+	}
+
+	private void attachDdldoFeedback(Task task, DdldoDecision decision, boolean success, String failureReason) {
+		DataCenter destination = (DataCenter) vmList.get(decision.vmIndex).getHost().getDatacenter();
+		decision.actualSuccess = success;
+		decision.delayFeedbackType = "actual";
+		decision.actualDelay = Math.max(0.0, simulationManager.getSimulation().clock() - task.getTime());
+
+		double energyAfter = energySnapshot(task.getEdgeDevice(), destination);
+		if (!Double.isNaN(decision.energyBefore) && !Double.isNaN(energyAfter) && energyAfter >= decision.energyBefore) {
+			decision.actualEnergy = energyAfter - decision.energyBefore;
+			decision.actualEnergyAvailable = true;
+			decision.energyFeedbackType = "datacenter_delta";
+		} else {
+			decision.actualEnergy = -1.0;
+			decision.actualEnergyAvailable = false;
+			decision.energyFeedbackType = "estimated_at_completion";
+		}
+
+		double feedbackEnergy = decision.actualEnergyAvailable ? decision.actualEnergy : decision.energy;
+		decision.observedCost = chapter4Objective(decision.actualDelay, feedbackEnergy, decision.currentDistance,
+				decision.projectedDistance, decision.vmLoad);
+		if (!success) {
+			decision.observedCost += 2.0;
+		}
+		if (decision.actualDelay > task.getMaxLatency()) {
+			decision.observedCost += 1.0 + (decision.actualDelay - task.getMaxLatency())
+					/ Math.max(1.0, task.getMaxLatency());
+		}
+		if (decision.coverageRemainingTime >= 0 && decision.actualDelay > decision.coverageRemainingTime) {
+			decision.observedCost += 2.0 + (decision.actualDelay - decision.coverageRemainingTime)
+					/ Math.max(1.0, task.getMaxLatency());
+		}
+		if (failureReason != null && failureReason.contains("MOBILITY")) {
+			decision.observedCost += 1.5;
+		}
+		decision.finalTrainingCost = decision.observedCost + 0.25 * decision.dnnScore;
+		decision.finalCost = decision.finalTrainingCost;
+	}
+
+	private double[] ddldoInput(Task task, DataCenter destination, int vm, double currentDistance,
+			double projectedDistance, double propagationDelay, double transmissionDelay, double executionDelay,
+			double energy, double coverageRemainingTime, double vmLoad, boolean mobilityRisk, boolean delayRisk,
+			boolean offloadingPossible) {
+		double safeCoverage = coverageRemainingTime < 0 ? simulationParameters.LOCATIONTIMENUM : coverageRemainingTime;
+		return new double[] {
+				normalize(task.getLength(), 100000000.0),
+				normalize(task.getFileSize(), 100000.0),
+				normalize(task.getOutputSize(), 100000.0),
+				normalize(task.getMaxLatency(), 20.0),
+				normalize(simulationParameters.VEHICLE_SPEED, 120.0),
+				normalize(simulationParameters.SATELLITE_SPEED, 10000.0),
+				destination.getType() == simulationParameters.TYPES.EDGE_DEVICE ? 1.0 : 0.0,
+				destination.getType() == simulationParameters.TYPES.EDGE_DATACENTER ? 1.0 : 0.0,
+				destination.getType() == simulationParameters.TYPES.CLOUD ? 1.0 : 0.0,
+				normalize(vmList.get(vm).getMips(), 100000.0),
+				normalize(vmLoad, 100.0),
+				normalize(currentDistance, Math.max(1.0, simulationParameters.CLOUD_RANGE)),
+				normalize(propagationDelay, Math.max(1.0, task.getMaxLatency())),
+				normalize(transmissionDelay, Math.max(1.0, task.getMaxLatency())),
+				normalize(executionDelay, Math.max(1.0, task.getMaxLatency())),
+				normalize(Math.log10(Math.max(1.0, energy)), 20.0),
+				normalize(safeCoverage, Math.max(1.0, simulationParameters.LOCATIONTIMENUM)),
+				mobilityRisk ? 1.0 : 0.0,
+				delayRisk ? 1.0 : 0.0,
+				offloadingPossible ? 1.0 : 0.0
+		};
+	}
+
+	private double speedAwareDistance(Task task, DataCenter destination, double currentDistance, double executionDelay) {
+		if (destination == task.getEdgeDevice()) {
+			return 0.0;
+		}
+		double speed = Math.max(0.0, simulationParameters.VEHICLE_SPEED);
+		double estimatedMotionWindow = Math.max(1.0, executionDelay + taskTransferDelay(task, destination));
+		double projected = currentDistance + speed * estimatedMotionWindow;
+		if (destination.getType() == simulationParameters.TYPES.CLOUD) {
+			return currentDistance;
+		}
+		return Math.max(0.0, projected);
+	}
+
+	private boolean mobilityRisk(Task task, DataCenter destination, double delay, double coverageRemainingTime,
+			double currentDistance, double projectedDistance) {
+		if (destination == task.getEdgeDevice() || destination.getType() == simulationParameters.TYPES.CLOUD) {
+			return false;
+		}
+		int range = destination.getType() == simulationParameters.TYPES.EDGE_DATACENTER
+				? simulationParameters.EDGE_DATACENTERS_RANGE : simulationParameters.EDGE_DEVICES_RANGE;
+		boolean rangeRisk = projectedDistance > Math.max(1.0, range);
+		boolean coverageRisk = coverageRemainingTime >= 0 && delay > coverageRemainingTime;
+		return rangeRisk || coverageRisk;
+	}
+
+	private double normalizeCost(double cost) {
+		if (Double.isNaN(cost) || Double.isInfinite(cost)) {
+			return 1.0;
+		}
+		return 1.0 - Math.exp(-Math.max(0.0, cost));
 	}
 
 	private double coverageRemainingTime(Task task, DataCenter destination, double estimatedTaskDelay) {
@@ -968,7 +1356,8 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 		if (gamma <= 0 || Double.isNaN(gamma) || Double.isInfinite(gamma)) {
 			return 0.0;
 		}
-		double coverage = 2.0 * (radius + height) * gamma / simulationParameters.SATELLITE_SPEED;
+		double relativeSpeed = simulationParameters.SATELLITE_SPEED + Math.max(0.0, simulationParameters.VEHICLE_SPEED);
+		double coverage = 2.0 * (radius + height) * gamma / Math.max(1.0, relativeSpeed);
 		double locationRemaining = Math.max(0.0,
 				simulationParameters.LOCATIONTIMENUM - simulationManager.getSimulation().clock());
 		if (locationRemaining > 0) {
@@ -1001,10 +1390,30 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 		return destination == null ? -1 : destination.getDeviceID();
 	}
 
-	private double chapter4Objective(int vm, MetricSnapshot metrics) {
-		double delay = metrics.propagationDelayStand.get(vm) + metrics.executionDelayStand.get(vm);
-		double energy = metrics.energyStand.get(vm);
-		return CHAPTER4_DELAY_WEIGHT * delay + CHAPTER4_ENERGY_WEIGHT * energy;
+	private String ddldoVmTypeLabel(DdldoDecision decision) {
+		switch (decision.action) {
+		case 0:
+			return "local";
+		case 1:
+			return "mist";
+		case 2:
+			return "edge";
+		case 3:
+			return "cloud";
+		default:
+			return "unknown";
+		}
+	}
+
+	private double chapter4Objective(double delay, double energy, double currentDistance, double projectedDistance,
+			double vmLoad) {
+		double delayCost = normalize(delay, 10.0);
+		double energyCost = normalize(Math.log10(Math.max(1.0, energy)), 20.0);
+		double distanceGrowth = normalize(Math.max(0.0, projectedDistance - currentDistance),
+				Math.max(1.0, simulationParameters.EDGE_DATACENTERS_RANGE));
+		double loadCost = normalize(vmLoad, 100.0);
+		return CHAPTER4_DELAY_WEIGHT * delayCost + CHAPTER4_ENERGY_WEIGHT * energyCost + 0.10 * distanceGrowth
+				+ 0.05 * loadCost;
 	}
 
 	private int ddldoActionForVm(Task task, int vm) {
@@ -1051,7 +1460,7 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 		if (ddldoMemory.size() >= DDLDO_MEMORY_SIZE) {
 			ddldoMemory.removeFirst();
 		}
-		ddldoMemory.addLast(new DdldoSample(input, oneHot(decision.action), decision));
+		ddldoMemory.addLast(new DdldoSample(input, normalizeCost(decision.finalCost), decision));
 	}
 
 	private double trainDdldo() {
@@ -1081,8 +1490,12 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 
 	private void appendDdldoDecisionLog(Task task, DdldoDecision decision, boolean success, String failureReason) {
 		String header = "time,taskId,deviceId,taskLength,taskFileSize,delaySensitivity,vehicleSpeed,sourceLeoId,"
-				+ "candidateCount,candidateActions,candidateVmIds,selectedAction,selectedVmId,objective,delay,energy,"
-				+ "coverageRemainingTime,estimatedFinishTime,coverageFeasible,latencyFeasible,energyFeasible,success,failureReason";
+				+ "candidateCount,candidateActions,candidateVmIds,selectedAction,selectedVmId,selectedVmType,"
+				+ "objective,dnnScore,finalCost,estimatedDelay,actualDelay,observedDelay,estimatedEnergy,"
+				+ "actualEnergy,actualEnergyAvailable,delayFeedbackType,energyFeedbackType,observedCost,"
+				+ "finalTrainingCost,memorySize,currentDistance,projectedDistance,propagationDelay,transmissionDelay,executionDelay,"
+				+ "coverageRemainingTime,estimatedFinishTime,coverageFeasible,latencyFeasible,energyFeasible,"
+				+ "mobilityRisk,delayRisk,offloadingPossible,success,failureReason";
 		String line = joinCsv(
 				csvDouble(simulationManager.getSimulation().clock()),
 				Long.toString(task.getId()),
@@ -1097,21 +1510,44 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 				decision.candidateVmIds,
 				Integer.toString(decision.action),
 				Integer.toString(decision.targetId),
+				ddldoVmTypeLabel(decision),
 				csvDouble(decision.objective),
+				csvDouble(decision.dnnScore),
+				csvDouble(decision.finalCost),
 				csvDouble(decision.delay),
+				csvDouble(decision.actualDelay),
+				csvDouble(decision.actualDelay),
 				csvDouble(decision.energy),
+				csvDouble(decision.actualEnergy),
+				Boolean.toString(decision.actualEnergyAvailable),
+				decision.delayFeedbackType,
+				decision.energyFeedbackType,
+				csvDouble(decision.observedCost),
+				csvDouble(decision.finalTrainingCost),
+				Integer.toString(ddldoMemory.size()),
+				csvDouble(decision.currentDistance),
+				csvDouble(decision.projectedDistance),
+				csvDouble(decision.propagationDelay),
+				csvDouble(decision.transmissionDelay),
+				csvDouble(decision.executionDelay),
 				csvDouble(decision.coverageRemainingTime),
 				csvDouble(decision.estimatedFinishTime),
 				Boolean.toString(decision.coverageFeasible),
 				Boolean.toString(decision.latencyFeasible),
 				Boolean.toString(decision.energyFeasible),
+				Boolean.toString(decision.mobilityRisk),
+				Boolean.toString(decision.delayRisk),
+				Boolean.toString(decision.offloadingPossible),
 				Boolean.toString(success),
 				failureReason == null ? "" : failureReason);
 		appendCsvLine(ddldoLogPath("chapter4_ddldo_decisions.csv"), header, line);
 	}
 
 	private void appendDdldoTrainingLog(double loss, DdldoDecision decision) {
-		String header = "time,episodeOrStep,memorySize,batchSize,learningRate,loss,avgObjective,selectedAction,selectedVmId";
+		String header = "time,episodeOrStep,memorySize,batchSize,learningRate,loss,avgObjective,selectedAction,"
+				+ "selectedVmId,selectedVmType,estimatedDelay,actualDelay,estimatedEnergy,actualEnergy,"
+				+ "actualEnergyAvailable,delayFeedbackType,energyFeedbackType,observedCost,finalTrainingCost,"
+				+ "success,failureReason";
 		String line = joinCsv(
 				csvDouble(simulationManager.getSimulation().clock()),
 				Integer.toString(ddldoEpochsTrained),
@@ -1121,7 +1557,19 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 				csvDouble(loss),
 				csvDouble(averageDdldoObjective()),
 				Integer.toString(decision.action),
-				Integer.toString(decision.targetId));
+				Integer.toString(decision.targetId),
+				ddldoVmTypeLabel(decision),
+				csvDouble(decision.delay),
+				csvDouble(decision.actualDelay),
+				csvDouble(decision.energy),
+				csvDouble(decision.actualEnergy),
+				Boolean.toString(decision.actualEnergyAvailable),
+				decision.delayFeedbackType,
+				decision.energyFeedbackType,
+				csvDouble(decision.observedCost),
+				csvDouble(decision.finalTrainingCost),
+				Boolean.toString(decision.actualSuccess),
+				decision.failureReason == null ? "" : decision.failureReason);
 		appendCsvLine(ddldoLogPath("chapter4_ddldo_training.csv"), header, line);
 	}
 
@@ -1312,6 +1760,10 @@ public class DefaultEdgeOrchestrator extends Orchestrator {
 			if (decision != null) {
 				boolean success = task.getFailureReason() == null || task.getFailureReason() == Task.Status.NULL;
 				String failureReason = success ? "" : task.getFailureReason().name();
+				attachDdldoFeedback(task, decision, success, failureReason);
+				rememberDdldo(decision.input, decision);
+				double loss = trainDdldo();
+				appendDdldoTrainingLog(loss, decision);
 				appendDdldoDecisionLog(task, decision, success, failureReason);
 			}
 			return;

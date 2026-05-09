@@ -1,39 +1,44 @@
-# 运行摘要
+# SatEdgeSim Chapter 4 Step 3 Full Run Summary
 
-## 目的
-本 zip 用于验证修复后 SatEdgeSim 是否正确复现论文第三章和第四章算法与图像。
+Generated: 2026-05-09 15:45:05
 
-## 选择的结果目录
-- 第三章结果目录: output/chapter3/2026-05-07_19-38-31
-- 第四章结果目录: output/chapter4/2026-05-07_22-11-09
-- 说明: 扫描 output/chapter3 与 output/chapter4 后，上述目录是当前最新结果目录，与用户指定目录一致。
+Purpose: upload the latest fixed SatEdgeSim source, settings, full Chapter 4 simulation outputs, speed experiment raw outputs, DDLDO logs, and regenerated figures to GitHub for verification.
 
-## 第三章结果文件
-- chapter3_results.csv
-- Sequential_simulation.csv
-- Sequential_simulation.txt
-- chapter3_figures/，图像数量: 9
+Latest Chapter 4 main output: `latest_output/chapter4/2026-05-09_14-16-16/`
 
-## 第四章结果文件
-- chapter4_results.csv
-- chapter4_speed_results.csv
-- chapter4_ddldo_decisions.csv，数据行数: 100445
-- chapter4_ddldo_training.csv，数据行数: 100446
-- Sequential_simulation.csv
-- Sequential_simulation.txt
-- chapter4_figures/，图像数量: 9
+Raw speed run outputs included under `latest_output/chapter4/`:
+- speed 30: `2026-05-09_12-47-37`
+- speed 40: `2026-05-09_12-58-23`
+- speed 50: `2026-05-09_13-07-14`
+- speed 60: `2026-05-09_13-32-12`
+- speed 70: `2026-05-09_13-38-27`
+- speed 80: `2026-05-09_13-44-40`
+- speed 90: `2026-05-09_13-50-52`
+- speed 100: `2026-05-09_13-57-08`
+- speed 110: `2026-05-09_14-03-25`
+- speed 120: `2026-05-09_14-09-42`
 
-## 代码修复扫描结果
-- issetlink / 星间链路海伦公式: 已在 $simMgr 中扫描到，包含 p * (p - h1) * (p - d) * (p - h2)。
-- 第三章 Q-learning reward: 位于 $orch 的 qLearningReward 方法，local 动作使用 CHAPTER3_LOCAL_ETE_WEIGHT / eteDelay + CHAPTER3_LOCAL_EXE_WEIGHT / executionDelay，offload 动作使用 -chapter3Objective(...)。
-- 第三章权重: $orch 中 CHAPTER3_WEIGHTS = { 6.0, 6.0, 3.0, 5.0 }。
-- 第四章 DDLDO K 值: $orch 中 DDLDO_DNN_COUNT = 3。
-- DDLDO 决策日志: 包含 selectedAction / selectedVmId / objective / delay / energy。
-- 覆盖时间字段: 决策日志和代码中包含 coverageRemainingTime / estimatedFinishTime / coverageFeasible。
-- 车速实验结果: chapter4_speed_results.csv 由 source/tools/create_chapter4_speed_results.py 从真实 chapter4 输出目录聚合；未发现 SERIES = { 等硬编码曲线数组。
+Commands used locally:
 
-## 运行日志
-父级 un_logs/ 已复制到 un_info/run_logs/，包含第三章完整运行日志、第四章主实验日志和第四章各车速真实仿真日志。
+```powershell
+$env:CUDA_VISIBLE_DEVICES='0'
+mvn.cmd -q exec:java -Dexec.mainClass=edu.weijunyong.satedgesim.MainApplication -Dexec.args=chapter4 -Dvehicle.speed=<30..120> -Dquick.single.device.count=1000
+python tools\create_chapter4_speed_results.py
+mvn.cmd -q exec:java -Dexec.mainClass=edu.weijunyong.satedgesim.MainApplication -Dexec.args=chapter4 -Dvehicle.speed=60
+python tools\extract_chapter4_results.py
+python tools\plot_chapter4_results.py
+```
 
-## 需要人工确认
-- 当前未发现明确 .tle 或 Walker 星座参数文件，但 settings/locationflie 下包含 STK 或固定位置 CSV。需要人工确认这些坐标是否由论文表中 Walker 参数生成。
+GPU proof observed in full run logs:
+
+```text
+ND4J backend: org.nd4j.linalg.jcublas.JCublasBackend
+ND4J executioner: org.nd4j.linalg.jcublas.ops.executioner.CudaExecutioner
+DDLDO DNN using GPU: true
+```
+
+Notes:
+- DDLDO uses 3 parallel DNNs with 20 -> 64 -> 128 -> 64 -> 1 structure.
+- `energyFeedbackType` remains `datacenter_delta`.
+- `coverage=-1` remains Not Applicable and does not trigger coverage infeasibility.
+- The speed figure is generated from `chapter4_speed_results.csv`, which was aggregated from the raw speed output directories included here.

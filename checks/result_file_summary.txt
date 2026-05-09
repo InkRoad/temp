@@ -1,71 +1,27 @@
-# 结果文件摘要
+Generated: 2026-05-09 15:45:05
+chapter4_results.csv rows: 70
+chapter4 algorithms: DDLDO, RANDOM_VM, ROUND_ROBIN, TASK_CLF_Q_LEARNING, TRADE_OFF, TRADI_POLLING, WEIGHT_GREEDY
+chapter4 device counts: 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000
+chapter4_speed_results.csv rows: 70
+speed values: 30, 40, 50, 60, 70, 80, 90, 100, 110, 120
+raw speed output dirs: 30=2026-05-09_12-47-37, 40=2026-05-09_12-58-23, 50=2026-05-09_13-07-14, 60=2026-05-09_13-32-12, 70=2026-05-09_13-38-27, 80=2026-05-09_13-44-40, 90=2026-05-09_13-50-52, 100=2026-05-09_13-57-08, 110=2026-05-09_14-03-25, 120=2026-05-09_14-09-42
 
-## 第三章 chapter3_results.csv
-- 行数: 60
-- 列名: Orchestration algorithm, Edge devices count, Average ETE delay (s), Average execution delay (s), Average energy consumption (W/Data center), Tasks success rate(%), Tasks failed rate(delay)(%), Tasks failed rate(mobility)(%), Total tasks executed (Cloud), Total tasks executed (Edge), Total tasks executed (Mist), Tasks successfully executed (Cloud), Tasks successfully executed (Edge), Tasks successfully executed (Mist)
-- 包含算法: RANDOM_VM, ROUND_ROBIN, TASK_CLF_Q_LEARNING, TRADE_OFF, TRADI_POLLING, WEIGHT_GREEDY
-- 是否包含 TASK_CLF_Q_LEARNING: 是
-- 是否包含成功率字段: 是
-- 是否包含平均端到端延迟字段: 是
-- 是否包含平均执行延迟字段: 是
-- 是否包含平均能耗字段: 是
-- chapter3_figures 图像数量: 9
+DDLDO average comparison from chapter4_results.csv:
+DDLDO: avgETE=3.267720, success=90.692920, avgEnergy=3.41059e+17
+RANDOM_VM: avgETE=4.559530, success=85.909460, avgEnergy=3.26967e+17
+ROUND_ROBIN: avgETE=4.673600, success=86.152560, avgEnergy=2.2887e+17
+TASK_CLF_Q_LEARNING: avgETE=1.957070, success=98.167570, avgEnergy=1.44479e+16
+TRADE_OFF: avgETE=4.445010, success=85.839150, avgEnergy=3.24942e+17
+TRADI_POLLING: avgETE=4.691700, success=84.478180, avgEnergy=1.58894e+17
+WEIGHT_GREEDY: avgETE=3.756620, success=89.102790, avgEnergy=7.54166e+16
 
-## 第四章 chapter4_results.csv
-- 行数: 105
-- 列名: Orchestration algorithm, Edge devices count, Average ETE delay (s), Average execution delay (s), Average energy consumption (W/Data center), Tasks success rate(%), Tasks failed rate(delay)(%), Tasks failed rate(mobility)(%), Total tasks executed (Cloud), Total tasks executed (Edge), Total tasks executed (Mist), Tasks successfully executed (Cloud), Tasks successfully executed (Edge), Tasks successfully executed (Mist)
-- 包含算法: DDLDO, RANDOM_VM, ROUND_ROBIN, TASK_CLF_Q_LEARNING, TRADE_OFF, TRADI_POLLING, WEIGHT_GREEDY
-- 是否包含 DDLDO: 是
-- 是否包含 TASK_CLF_Q_LEARNING: 是
-- 是否包含成功率字段: 是
-- 是否包含平均端到端延迟字段: 是
-- 是否包含平均能耗字段: 是
-- chapter4_figures 图像数量: 9
+DDLDO speed points from chapter4_speed_results.csv:
+speed=30: AvgETE=4.915500, success=88.974100, energy=3.33827e+17
+speed=60: AvgETE=4.875200, success=88.650000, energy=3.31948e+17
+speed=120: AvgETE=4.871100, success=88.310100, energy=3.3627e+17
 
-## 第四章 chapter4_speed_results.csv
-- 行数: 70
-- 列名: Orchestration algorithm, Vehicle speed, Average ETE delay (s), Average energy consumption (W/Data center), Tasks success rate(%)
-- 包含 speed: 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0, 120.0
-- 包含算法: DDLDO, RANDOM_VM, ROUND_ROBIN, TASK_CLF_Q_LEARNING, TRADE_OFF, TRADI_POLLING, WEIGHT_GREEDY
-
-## DDLDO decisions
-- 行数: 100445
-- 列名: time, taskId, deviceId, taskLength, taskFileSize, delaySensitivity, vehicleSpeed, sourceLeoId, candidateCount, candidateActions, candidateVmIds, selectedAction, selectedVmId, objective, delay, energy, coverageRemainingTime, estimatedFinishTime, coverageFeasible, latencyFeasible, energyFeasible, success, failureReason
-- 是否包含 selectedAction: 是
-- 是否包含 selectedVmId 或 targetId: 是
-- 是否包含 objective: 是
-- 是否包含 delay: 是
-- 是否包含 energy: 是
-- 是否包含 coverageRemainingTime / estimatedFinishTime / coverageFeasible: 是
-- 是否为空或只有表头: 否
-
-## DDLDO training
-- 行数: 100446
-- 列名: time, episodeOrStep, memorySize, batchSize, learningRate, loss, avgObjective, selectedAction, selectedVmId
-- 是否包含 loss: 是
-- 是否包含 memorySize: 是
-- 是否包含 avgObjective: 是
-- 是否为空或只有表头: 否
-
-## 配置缺失检查
-[OK] edu/weijunyong/satedgesim/SimulationManager/SimulationManager.java
-[OK] edu/weijunyong/satedgesim/TasksOrchestration/DefaultEdgeOrchestrator.java
-[OK] edu/weijunyong/satedgesim/LocationManager/DefaultMobilityModel.java
-[OK] edu/weijunyong/satedgesim/ScenarioManager/simulationParameters.java
-[OK] settings/simulation_parameters.properties
-[OK] settings/chapter4_simulation_parameters.properties
-[OK] settings/locationflie/cloud/cloud Fixed Position.csv
-[OK] settings/locationflie/cloud/cloud Fixed Position1.csv
-[OK] settings/locationflie/edge_datacenter/edge Fixed Position.csv
-[OK] settings/locationflie/edge_datacenter/edge Fixed Position1.csv
-[OK] settings/locationflie/edge_devices/mist Fixed Position.csv
-[OK] settings/locationflie/edge_devices/mist Fixed Position1.csv
-[OK] output/chapter3/2026-05-07_19-38-31/chapter3_results.csv
-[OK] output/chapter3/2026-05-07_19-38-31/Sequential_simulation.csv
-[OK] output/chapter3/2026-05-07_19-38-31/Sequential_simulation.txt
-[OK] output/chapter4/2026-05-07_22-11-09/chapter4_results.csv
-[OK] output/chapter4/2026-05-07_22-11-09/chapter4_speed_results.csv
-[OK] output/chapter4/2026-05-07_22-11-09/chapter4_ddldo_decisions.csv
-[OK] output/chapter4/2026-05-07_22-11-09/chapter4_ddldo_training.csv
-[OK] output/chapter4/2026-05-07_22-11-09/Sequential_simulation.csv
-[OK] output/chapter4/2026-05-07_22-11-09/Sequential_simulation.txt
+DDLDO decisions rows: 69604
+DDLDO decision fields include actualDelay: True
+DDLDO decision fields include actualEnergy: True
+DDLDO decision fields include energyFeedbackType: True
+energyFeedbackType counts: {'datacenter_delta': 69604}
